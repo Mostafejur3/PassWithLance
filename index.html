@@ -159,6 +159,21 @@
         .save-img-btn:hover {
             background: #2e4a1f;
         }
+        /* Additional style for bottom button group inside answer sheet area */
+        .bottom-action-buttons {
+            margin-top: 24px;
+            text-align: center;
+            border-top: 1px solid #e2cfaa;
+            padding-top: 20px;
+        }
+        .bottom-action-buttons button {
+            background: #4a6a3b;
+            padding: 10px 28px;
+            font-size: 15px;
+        }
+        .bottom-action-buttons button:hover {
+            background: #2e4a1f;
+        }
 
         /* printed answer sheet style inside panel (exactly like the required ans temp.pdf but extended) */
         .printed-ans-sheet {
@@ -421,10 +436,11 @@ function buildPrintableAnswerSheetHTML(ans) {
         <h3 style="background:#ede3cf; padding:4px 12px;">Section C – Translation (English → Chinese)</h3>
         ${transHtml}
         <div class="sign-line"><span>Student Signature: _________________</span><span>Examiner: _________________</span><span>Marks: ___/100</span></div>
+        <br><br><br>
     </div>`;
 }
 
-// Save answer sheet panel as image (via html2canvas)
+// Global function to save answer sheet as image (reused)
 async function savePanelAsImage() {
     const panel = document.getElementById('answerSummaryPanel');
     const sheetDiv = panel.querySelector('.printed-ans-sheet');
@@ -441,45 +457,36 @@ async function savePanelAsImage() {
     finally { document.getElementById('loadingOverlay').classList.remove('show'); }
 }
 
-async function savePanelAsPDF() {
-    const panel = document.getElementById('answerSummaryPanel');
-    const sheetDiv = panel.querySelector('.printed-ans-sheet');
-    if (!sheetDiv) { alert("Please click 'End Test' first."); return; }
-    document.getElementById('loadingOverlay').classList.add('show');
-    try {
-        const canvas = await html2canvas(sheetDiv, { scale: 2, backgroundColor: '#ffffff', logging: false });
-        const imgData = canvas.toDataURL('image/jpeg', 0.95);
-        const { jsPDF } = window.jspdf;
-        const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
-        const imgW = pdf.internal.pageSize.getWidth();
-        const imgH = (canvas.height * imgW) / canvas.width;
-        pdf.addImage(imgData, 'JPEG', 0, 0, imgW, imgH);
-        const student = document.getElementById('studentName').value.trim() || 'student';
-        pdf.save(`AnswerSheet_${student}.pdf`);
-    } catch(e) { alert("PDF generation error: "+e.message); }
-    finally { document.getElementById('loadingOverlay').classList.remove('show'); }
-}
-
-// "End Test" button: Reveal answer sheet panel with all answers
+// End test & reveal answer sheet panel with both top and bottom "Save as Image" buttons
 function endTestAndReveal() {
     const answers = collectAllAnswers();
     const sheetHTML = buildPrintableAnswerSheetHTML(answers);
     const panelDiv = document.getElementById('answerSummaryPanel');
+    // Inject both top action buttons AND a duplicate bottom action row with another Save as Image button
     panelDiv.innerHTML = `
         <div class="summary-header">
             <h3>📋 Your Final Answer Sheet</h3>
             <div class="summary-actions">
                 <button id="saveAsImageBtn" class="save-img-btn">🖼️ Save as Image</button>
-                <button id="saveAsPdfBtn" class="save-img-btn" style="background:#5d3a1a;">📑 Save as PDF</button>
+                
             </div>
         </div>
         ${sheetHTML}
+        <div class="bottom-action-buttons">
+            <h2>考试结束后，请务必保存图片并发送给老师。这是必须的，否则老师将无法看到你的成绩。</h2>
+            <h4>After the exam is over, you must save the image and send it to the teacher.This is mandatory; otherwise, the teacher will not be able to see your marks.</h4>
+            
+            <button id="bottomSaveAsImageBtn" class="save-img-btn">🖼️ Save as Image </button>
+        </div>
     `;
     panelDiv.classList.add('show');
-    // attach events after rendering
-    document.getElementById('saveAsImageBtn')?.addEventListener('click', savePanelAsImage);
-    document.getElementById('saveAsPdfBtn')?.addEventListener('click', savePanelAsPDF);
-    // Smooth scroll to answer sheet
+    // Attach event to top button
+    const topImgBtn = document.getElementById('saveAsImageBtn');
+    if (topImgBtn) topImgBtn.addEventListener('click', savePanelAsImage);
+    // Attach event to the additional bottom button (exactly same functionality)
+    const bottomImgBtn = document.getElementById('bottomSaveAsImageBtn');
+    if (bottomImgBtn) bottomImgBtn.addEventListener('click', savePanelAsImage);
+    // Smooth scroll
     panelDiv.scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 
@@ -491,7 +498,6 @@ function resetAllAnswers() {
     const trans = document.getElementById("translationAnswer"); if (trans) trans.value = "";
     const nm = document.getElementById("studentName"); if (nm) nm.value = "";
     const id = document.getElementById("studentId"); if (id) id.value = "";
-    // Also hide summary panel if visible
     const panel = document.getElementById('answerSummaryPanel');
     panel.classList.remove('show');
     panel.innerHTML = "";
